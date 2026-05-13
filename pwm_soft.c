@@ -57,9 +57,10 @@
 
 // Variáveis Globais (Observar no depurador)
 unsigned int g_pwmControlReg = 0x0000U; // Registrador de controle PWM simulado
-float g_dutyCyclePercent = 50.0F;       // Ciclo de trabalho desejado (0.0 a 100.0)
+float g_dutyCyclePercent = 0.0F;       // Ciclo de trabalho desejado (0.0 a 100.0)
 unsigned int g_timeOn_us;               // Tempo LIGADO (LED ON)
 unsigned int g_timeOff_us;              // Tempo DESLIGADO (LED OFF)
+bool g_enable_pwm = true;
 
 // Protótipos de Funções
 void initSystemPeripherals(void);
@@ -83,8 +84,25 @@ void main(void)
     // Loop infinito para gerar o PWM
     for(;;)
     {
+            if (g_enable_pwm)
+    {
+        enablePWM();
+    }
+
+    else {
+    {
+        disablePWM();
+    }
+    }
         setPWMDutyCycleAndRegister(g_dutyCyclePercent);
         generateSoftwarePWM();
+        g_dutyCyclePercent++;
+        DEVICE_DELAY_US(10000);  // 10 ms
+        if (g_dutyCyclePercent > 100.0f)
+        {
+            g_dutyCyclePercent = 0.0f;
+            DEVICE_DELAY_US(500000);  // 500 ms
+        }
     }
 }
 
@@ -94,7 +112,10 @@ void initSystemPeripherals(void)
 {
     Device_init();
     Device_initGPIO();
-    enablePWM();
+    if (g_enable_pwm)
+    {
+        enablePWM();
+    }
     Interrupt_initModule();
     Interrupt_initVectorTable();
     EINT; // Habilita Interrupções Globais
