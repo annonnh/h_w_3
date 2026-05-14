@@ -1,0 +1,1 @@
+unsigned int read_simulated_ADC_with_sin(void);

@@ -1,8 +1,14 @@
 #include "adc_simulator.h"
+#include "input_signal/input_signal.h"
 
 float limiar_max_value = 0.0F;
 int sample_state = 0U;
-
+float sin_function_with_noise = 0.0F;
+// At the top, alongside your other globals like sin_function_with_noise
+float g_graphBuffer[2][GRAPH_BUFFER_SIZE];
+unsigned int g_graphBufferIndex    = 0U;
+unsigned int g_graphActiveBuffer   = 0U;
+unsigned int g_graphBufferReady    = 0U;             // watch this in CCS
 
 // Implementações de Funções
 
@@ -24,7 +30,7 @@ void initAdcChannel(AdcChannel_t *pCh)
 void processAdcChannel(AdcChannel_t *pChannel)
 {
     // 1. Lê o ADC (simulado)
-    unsigned int rawSample = readSimulatedADC();
+    unsigned int rawSample = read_simulated_ADC_with_sin();
 
     // 2. Adiciona a nova amostra ao buffer circular
     addSampleToBuffer(pChannel, rawSample);
@@ -34,7 +40,22 @@ void processAdcChannel(AdcChannel_t *pChannel)
 
     // 4. Converte o valor filtrado para tensão
     pChannel->filteredVoltage = convertADCToVoltage(pChannel->filteredValueADC);
+    sin_function_with_noise = convertADCToVoltage(rawSample);
+    //sin_function_with_noise = pChannel->filteredVoltage;
+   // Fill the active buffer
+g_graphBuffer[g_graphActiveBuffer][g_graphBufferIndex] = sin_function_with_noise;
+g_graphBufferIndex++;
 
+if (g_graphBufferIndex >= GRAPH_BUFFER_SIZE)
+{
+    g_graphBufferIndex = 0U;
+
+    // Swap buffers — firmware moves to the other one
+    g_graphActiveBuffer = 1U - g_graphActiveBuffer;
+
+    // Tell CCS which buffer is now complete and safe to read
+    g_graphBufferReady  = 1U - g_graphActiveBuffer;
+}
     //5. Aqui deverá ser incluída a lógica de detecção de limiar excedido
     if (pChannel->filteredVoltage >= limiar_max_value)
     {

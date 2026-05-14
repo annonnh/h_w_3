@@ -4,7 +4,14 @@
 
 #define FILTER_BUFFER_SIZE      16      // Número de amostras para a média móvel
 
-#define SAMPLING_PERIOD_US      10000U  // Período de amostragem (10 ms → 100 Hz)
+#define SAMPLING_PERIOD_US      500U  // Período de amostragem (10 ms → 100 Hz)
+
+#define GRAPH_BUFFER_SIZE  256U
+
+extern float g_graphBuffer[2][GRAPH_BUFFER_SIZE];   // two buffers
+extern unsigned int g_graphBufferIndex;
+extern unsigned int g_graphActiveBuffer;             // which one firmware is writing
+extern unsigned int g_graphBufferReady;              // signals CCS which one to read
 
 // --- Enumeração para o Estado do Canal ADC ---
 typedef enum {
