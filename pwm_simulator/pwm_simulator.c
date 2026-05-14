@@ -1,0 +1,94 @@
+#include "pwm_simulator.h"
+#include "device.h"
+#include <stdbool.h> // Para tipo bool
+#include "gpio.h"
+
+// Implementações de Funções
+float g_dutyCyclePercent = 0.0F;       // Ciclo de trabalho desejado (0.0 a 100.0)
+
+// Variáveis Globais (Observar no depurador)
+unsigned int g_pwmControlReg = 0x0000U; // Registrador de controle PWM simulado
+unsigned int g_timeOn_us;               // Tempo LIGADO (LED ON)
+unsigned int g_timeOff_us;              // Tempo DESLIGADO (LED OFF)
+bool g_enable_pwm = true;
+
+void initSystemPeripherals(void)
+{
+    Device_init();
+    Device_initGPIO();
+    if (g_enable_pwm)
+    {
+        enablePWM();
+    }
+    Interrupt_initModule();
+    Interrupt_initVectorTable();
+    EINT; // Habilita Interrupções Globais
+    ERTM; // Habilita Depuração em Tempo Real
+}
+
+void initLEDGPIO(void)
+{
+    GPIO_setPadConfig(LED_GPIO_PIN, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(LED_GPIO_PIN, GPIO_DIR_MODE_OUT);
+    GPIO_writePin(LED_GPIO_PIN, 1); // LED inicia desligado (ativo baixo)
+}
+
+void enablePWM(void)
+{
+    g_pwmControlReg = g_pwmControlReg | PWM_ENABLE_BIT;
+}
+
+void disablePWM(void)
+{
+    g_pwmControlReg = g_pwmControlReg & (~PWM_ENABLE_BIT);
+}
+
+// Calcula tempos ON/OFF a partir do valor de comparação do registrador.
+void calculatePWMOnOffTimes(unsigned int compareValue)
+{
+    g_timeOn_us = compareValue;
+    g_timeOff_us = PWM_PERIOD_US - g_timeOn_us;
+}
+
+// Converte ciclo de trabalho (%) para valor de comparação (0 a PWM_PERIOD_US).
+unsigned int calculateCompareValueFromDutyCycle(float dutyCycle)
+{
+    if (dutyCycle < 0.0F) dutyCycle = 0.0F;
+    else if (dutyCycle > 100.0F) dutyCycle = 100.0F;
+    return (unsigned int)((dutyCycle / 100.0F) * PWM_PERIOD_US);
+}
+
+// Configura ciclo de trabalho e atualiza registrador simulado e tempos ON/OFF.
+void setPWMDutyCycleAndRegister(float dutyCycle)
+{
+    g_dutyCyclePercent = dutyCycle;
+
+    unsigned int compareVal = calculateCompareValueFromDutyCycle(dutyCycle);
+
+    // Preserva o bit de enable, limpa os bits de comparação e escreve o novo valor
+    unsigned int currentConfigBits = g_pwmControlReg & ~PWM_COMPARE_MASK;
+    g_pwmControlReg = currentConfigBits | (compareVal & PWM_COMPARE_MASK);
+
+    calculatePWMOnOffTimes(compareVal);
+}
+
+// Gera um ciclo da onda PWM por software no pino do LED.
+// Apenas lógica normal (ativo baixo: 0 = LED ON, 1 = LED OFF).
+void generateSoftwarePWM(void)
+{
+    if ((g_pwmControlReg & PWM_ENABLE_BIT) != 0U) // Se PWM habilitado
+    {
+        // Período ON: pino LOW -> LED aceso
+        GPIO_writePin(LED_GPIO_PIN, 0);
+        DEVICE_DELAY_US(g_timeOn_us);
+
+        // Período OFF: pino HIGH -> LED apagado
+        GPIO_writePin(LED_GPIO_PIN, 1);
+        DEVICE_DELAY_US(g_timeOff_us);
+    }
+    else // PWM desabilitado
+    {
+        GPIO_writePin(LED_GPIO_PIN, 1); // LED OFF
+        DEVICE_DELAY_US(PWM_PERIOD_US); // Aguarda período completo
+    }
+}

@@ -1,0 +1,106 @@
+#include "adc_simulator.h"
+
+float limiar_max_value = 0.0F;
+int sample_state = 0U;
+
+
+// Implementações de Funções
+
+void initAdcChannel(AdcChannel_t *pCh)
+{
+    unsigned int i;
+    // Limpa o buffer do filtro
+    for (i = 0U; i < FILTER_BUFFER_SIZE; i++)
+    {
+        pCh->buffer[i] = 0U;
+    }
+    pCh->currentIndex = 0U;
+    pCh->filteredValueADC = 0U;
+    pCh->filteredVoltage = 0.0F;
+    pCh->state = ADC_CHANNEL_STATE_NORMAL;
+}
+
+// Processa um ciclo completo: leitura, filtro e verificação de limiar
+void processAdcChannel(AdcChannel_t *pChannel)
+{
+    // 1. Lê o ADC (simulado)
+    unsigned int rawSample = readSimulatedADC();
+
+    // 2. Adiciona a nova amostra ao buffer circular
+    addSampleToBuffer(pChannel, rawSample);
+
+    // 3. Calcula a média móvel
+    calculateMovingAverage(pChannel);
+
+    // 4. Converte o valor filtrado para tensão
+    pChannel->filteredVoltage = convertADCToVoltage(pChannel->filteredValueADC);
+
+    //5. Aqui deverá ser incluída a lógica de detecção de limiar excedido
+    if (pChannel->filteredVoltage >= limiar_max_value)
+    {
+        pChannel->state = ADC_CHANNEL_STATE_OVER_VALUE;
+    }
+    
+    else
+    {
+        pChannel->state = ADC_CHANNEL_STATE_NORMAL;
+    }
+    sample_state = pChannel->state; 
+}
+
+// Simula uma leitura do ADC gerando um valor que varia lentamente.
+// Utiliza um contador simples para produzir uma rampa triangular
+// (sobe de 0 até ADC_MAX_VALUE e depois desce).
+unsigned int readSimulatedADC(void)
+{
+    static unsigned long counter = 0UL;
+    static int direction = 1;           // 1 = subindo, -1 = descendo
+
+    // Atualiza o contador com passo fixo
+    counter = counter + (unsigned long)(10 * direction);
+
+    // Inverte a direção nos extremos
+    if (counter >= ADC_MAX_VALUE)
+    {
+        counter = ADC_MAX_VALUE;
+        direction = -1;
+    }
+    else if (counter == 0UL)
+    {
+        direction = 1;
+    }
+
+    return (unsigned int)counter;
+}
+
+// Adiciona uma nova amostra ao buffer circular do canal.
+void addSampleToBuffer(AdcChannel_t *pChannel, unsigned int newSample)
+{
+    pChannel->buffer[pChannel->currentIndex] = newSample;
+    pChannel->currentIndex = (pChannel->currentIndex + 1U) % FILTER_BUFFER_SIZE;
+}
+
+// Calcula a média móvel das amostras no buffer.
+void calculateMovingAverage(AdcChannel_t *pChannel)
+{
+    unsigned long sum = 0UL;
+    unsigned int i;
+    for ( i = 0U; i < FILTER_BUFFER_SIZE; i++)
+    {
+        sum = sum + pChannel->buffer[i];
+    }
+    // Arredondamento simples
+    pChannel->filteredValueADC = (unsigned int)((sum + FILTER_BUFFER_SIZE / 2U) / FILTER_BUFFER_SIZE);
+
+    // Garante que o valor não ultrapasse o máximo do ADC
+    if (pChannel->filteredValueADC > ADC_MAX_VALUE)
+    {
+        pChannel->filteredValueADC = ADC_MAX_VALUE;
+    }
+}
+
+// Converte um valor ADC (0 a 4095) para tensão (0 a 3.3 V).
+float convertADCToVoltage(unsigned int adcValue)
+{
+    return ((float)adcValue / (float)ADC_MAX_VALUE) * ADC_REFERENCE_VOLTAGE;
+}
