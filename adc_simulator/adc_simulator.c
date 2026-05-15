@@ -1,9 +1,14 @@
 #include "adc_simulator.h"
 #include "input_signal/input_signal.h"
+#include "pwm_simulator/pwm_simulator.h"
+
+#define ADC_DC_OFFSET_VOLTAGE  ((2048.0F / (float)ADC_MAX_VALUE) * ADC_REFERENCE_VOLTAGE)
 
 float limiar_max_value = 0.0F;
 int sample_state = 0U;
 float sin_function_with_noise = 0.0F;
+float sin_function_0_centered = 0.0F;
+
 // At the top, alongside your other globals like sin_function_with_noise
 float g_graphBuffer[2][GRAPH_BUFFER_SIZE];
 unsigned int g_graphBufferIndex    = 0U;
@@ -42,31 +47,45 @@ void processAdcChannel(AdcChannel_t *pChannel)
     pChannel->filteredVoltage = convertADCToVoltage(pChannel->filteredValueADC);
     sin_function_with_noise = convertADCToVoltage(rawSample);
     //sin_function_with_noise = pChannel->filteredVoltage;
-   // Fill the active buffer
-g_graphBuffer[g_graphActiveBuffer][g_graphBufferIndex] = sin_function_with_noise;
-g_graphBufferIndex++;
-
-if (g_graphBufferIndex >= GRAPH_BUFFER_SIZE)
-{
-    g_graphBufferIndex = 0U;
-
-    // Swap buffers — firmware moves to the other one
-    g_graphActiveBuffer = 1U - g_graphActiveBuffer;
-
-    // Tell CCS which buffer is now complete and safe to read
-    g_graphBufferReady  = 1U - g_graphActiveBuffer;
-}
-    //5. Aqui deverá ser incluída a lógica de detecção de limiar excedido
-    if (pChannel->filteredVoltage >= limiar_max_value)
-    {
-        pChannel->state = ADC_CHANNEL_STATE_OVER_VALUE;
-    }
     
+    sin_function_0_centered = pChannel->filteredVoltage - ADC_DC_OFFSET_VOLTAGE;
+    
+    g_dutyCyclePercent = fabs((double)(sin_function_0_centered*200.0F));
+
+    if (sin_function_0_centered >= 0)
+    {
+        select_led = 1; // green led
+    }
+
     else
     {
-        pChannel->state = ADC_CHANNEL_STATE_NORMAL;
+        select_led = 0; // blue led
     }
-    sample_state = pChannel->state; 
+    // Fill the active buffer
+    g_graphBuffer[g_graphActiveBuffer][g_graphBufferIndex] = sin_function_0_centered;//sin_function_with_noise;
+    g_graphBufferIndex++;
+
+    if (g_graphBufferIndex >= GRAPH_BUFFER_SIZE)
+    {
+        g_graphBufferIndex = 0U;
+
+        // Swap buffers — firmware moves to the other one
+        g_graphActiveBuffer = 1U - g_graphActiveBuffer;
+
+        // Tell CCS which buffer is now complete and safe to read
+        g_graphBufferReady  = 1U - g_graphActiveBuffer;
+    }
+        //5. Aqui deverá ser incluída a lógica de detecção de limiar excedido
+        if (pChannel->filteredVoltage >= limiar_max_value)
+        {
+            pChannel->state = ADC_CHANNEL_STATE_OVER_VALUE;
+        }
+        
+        else
+        {
+            pChannel->state = ADC_CHANNEL_STATE_NORMAL;
+        }
+        sample_state = pChannel->state; 
 }
 
 // Simula uma leitura do ADC gerando um valor que varia lentamente.

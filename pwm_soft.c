@@ -76,21 +76,19 @@ void main(void)
         DEVICE_DELAY_US(SAMPLING_PERIOD_US);
     }
 
-    // else {
-    // {
-    //     disablePWM();
-    // }
-    // }
-        // setPWMDutyCycleAndRegister(g_dutyCyclePercent);
-        // generateSoftwarePWM();
-        // g_dutyCyclePercent++;
-       // DEVICE_DELAY_US(10000);  // 10 ms
-        // if (g_dutyCyclePercent > 100.0f)
-        // {
-        //     g_dutyCyclePercent = 0.0f;
-        //     DEVICE_DELAY_US(500000);  // 500 ms
-        // }
+    else 
+    {
+        disablePWM();
         
+        GPIO_writePin(LED_GPIO_PIN, 1); // LED OFF
+        DEVICE_DELAY_US(PWM_PERIOD_US); // Aguarda período completo
+
+        GPIO_writePin(LED_GPIO_PIN2, 1); // LED OFF
+        DEVICE_DELAY_US(PWM_PERIOD_US); // Aguarda período completo
+    }
+    
+        setPWMDutyCycleAndRegister(g_dutyCyclePercent);
+        generateSoftwarePWM();        
     }
 }
 

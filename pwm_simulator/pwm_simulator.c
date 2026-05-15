@@ -4,6 +4,7 @@
 #include "gpio.h"
 
 // Implementações de Funções
+int select_led = 0; // 0 blue 1 gren
 float g_dutyCyclePercent = 0.0F;       // Ciclo de trabalho desejado (0.0 a 100.0)
 
 // Variáveis Globais (Observar no depurador)
@@ -31,6 +32,11 @@ void initLEDGPIO(void)
     GPIO_setPadConfig(LED_GPIO_PIN, GPIO_PIN_TYPE_STD);
     GPIO_setDirectionMode(LED_GPIO_PIN, GPIO_DIR_MODE_OUT);
     GPIO_writePin(LED_GPIO_PIN, 1); // LED inicia desligado (ativo baixo)
+
+
+    GPIO_setPadConfig(LED_GPIO_PIN2, GPIO_PIN_TYPE_STD);
+    GPIO_setDirectionMode(LED_GPIO_PIN2, GPIO_DIR_MODE_OUT);
+    GPIO_writePin(LED_GPIO_PIN2, 1); // LED inicia desligado (ativo baixo)
 }
 
 void enablePWM(void)
@@ -78,17 +84,36 @@ void generateSoftwarePWM(void)
 {
     if ((g_pwmControlReg & PWM_ENABLE_BIT) != 0U) // Se PWM habilitado
     {
-        // Período ON: pino LOW -> LED aceso
-        GPIO_writePin(LED_GPIO_PIN, 0);
-        DEVICE_DELAY_US(g_timeOn_us);
+        if (select_led == 1)
+        {    
+            // Período ON: pino LOW -> LED aceso
+            GPIO_writePin(LED_GPIO_PIN2, 0);
+            DEVICE_DELAY_US(g_timeOn_us);
 
-        // Período OFF: pino HIGH -> LED apagado
-        GPIO_writePin(LED_GPIO_PIN, 1);
-        DEVICE_DELAY_US(g_timeOff_us);
+            // Período OFF: pino HIGH -> LED apagado
+            GPIO_writePin(LED_GPIO_PIN2, 1);
+            DEVICE_DELAY_US(g_timeOff_us);
+        }
+
+        else 
+        {
+            // Período ON: pino LOW -> LED aceso
+            GPIO_writePin(LED_GPIO_PIN, 0);
+            DEVICE_DELAY_US(g_timeOn_us);
+
+            // Período OFF: pino HIGH -> LED apagado
+            GPIO_writePin(LED_GPIO_PIN, 1);
+            DEVICE_DELAY_US(g_timeOff_us);
+        }
+        
     }
     else // PWM desabilitado
     {
         GPIO_writePin(LED_GPIO_PIN, 1); // LED OFF
         DEVICE_DELAY_US(PWM_PERIOD_US); // Aguarda período completo
+
+        GPIO_writePin(LED_GPIO_PIN2, 1); // LED OFF
+        DEVICE_DELAY_US(PWM_PERIOD_US); // Aguarda período completo
+   
     }
 }

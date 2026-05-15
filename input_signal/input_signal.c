@@ -14,7 +14,7 @@ unsigned int read_simulated_ADC_with_sin(void)
     int   signedNoise;
 
     const float Ts = (float)SAMPLING_PERIOD_US * 1e-6F;
-    const float f0 = 20.0F;
+    const float f0 = 60.0F;
 
     // --- Sine (phase accumulator, no drift) ---
     phase  = 2.0F * 3.14159265F * f0 * (float)sampleCount * Ts;
